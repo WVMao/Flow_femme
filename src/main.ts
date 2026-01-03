@@ -272,9 +272,11 @@ const renderLockScreen = (customTitle: string = "Entrez votre PIN", mode: 'verif
   document.getElementById('cancel-pin')?.addEventListener('click', () => lockEl.remove());
 };
 
-const renderCalendar = () => {
-  if (!appContent) return;
-  viewTitle!.textContent = `Bonjour, ${userProfile.name} ✨`;
+const renderCalendar = (targetContainer?: HTMLElement) => {
+  const container = targetContainer || appContent;
+  if (!container) return;
+
+  if (!targetContainer) viewTitle!.textContent = `Bonjour, ${userProfile.name} ✨`;
 
   const monthNames = userProfile.language === 'en'
     ? ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
@@ -303,7 +305,7 @@ const renderCalendar = () => {
   const sleepHours = todayLog.sleepHours || 7;
   const sleepQuality = todayLog.sleepQuality || null;
 
-  appContent.innerHTML = `
+  container.innerHTML = `
     <div class="card" style="background: linear-gradient(135deg, white, var(--bg-app));">
       <div class="cal-nav">
         <button class="cal-nav-btn" id="prev-month"><i class="fas fa-chevron-left"></i></button>
@@ -952,17 +954,6 @@ const generateReport = () => {
   reportWindow.document.close();
 };
 
-const renderView = (view: string) => {
-  currentView = view;
-  localStorage.setItem('lastView', view);
-  navItems.forEach(item => item.classList.toggle('active', item.getAttribute('data-view') === view));
-  switch (view) {
-    case 'calendar': renderCalendar(); break;
-    case 'health': renderHealth(); break;
-    case 'tips': renderTips(); break;
-    case 'profile': renderProfile(); break;
-  }
-};
 
 const getCyclePredictions = (lastPeriod: string | undefined, cycleLen: number, periodLen: number) => {
   if (!lastPeriod) return { nextPeriod: null, nextPeriodEnd: null, fertileWindowStart: null, fertileWindowEnd: null, ovulation: null };
@@ -980,14 +971,233 @@ const getCyclePredictions = (lastPeriod: string | undefined, cycleLen: number, p
   return { nextPeriod: nextDate, nextPeriodEnd, fertileWindowStart: fertileStart, fertileWindowEnd: fertileEnd, ovulation: ovulationDate };
 }
 
-navItems.forEach(item => item.addEventListener('click', () => { const view = item.getAttribute('data-view'); if (view) renderView(view); }));
+// --- New Helpers ---
+const showToast = (msg: string) => {
+  const toast = document.createElement('div');
+  toast.className = 'notification-toast';
+  toast.innerHTML = `<i class="fas fa-check-circle"></i> <span>${msg}</span>`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.classList.add('show'), 100);
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 400);
+  }, 3000);
+};
+
+// --- FAB Logic ---
+const renderFAB = () => {
+  if (document.querySelector('.fab-container')) return;
+  const fab = document.createElement('div');
+  fab.className = 'fab-container';
+  fab.innerHTML = `
+    <div class="fab-menu">
+      <div class="fab-item" id="quick-period"><i class="fas fa-tint" style="color:var(--terracotta);"></i> ${getT('ui.periodStart')}</div>
+      <div class="fab-item" id="quick-mood"><i class="fas fa-smile" style="color:var(--sage);"></i> ${getT('ui.moodLabel')}</div>
+      <div class="fab-item" id="quick-sport"><i class="fas fa-running" style="color:var(--sage-dark);"></i> Sport</div>
+    </div>
+    <button class="fab-main"><i class="fas fa-plus"></i></button>
+  `;
+  document.body.appendChild(fab);
+
+  const mainBtn = fab.querySelector('.fab-main');
+  mainBtn?.addEventListener('click', () => fab.classList.toggle('active'));
+
+  // Quick Actions
+  fab.querySelector('#quick-period')?.addEventListener('click', () => {
+    fab.classList.remove('active');
+    showSymptomsModal(new Date().getDate());
+  });
+  fab.querySelector('#quick-mood')?.addEventListener('click', () => {
+    fab.classList.remove('active');
+    showSymptomsModal(new Date().getDate());
+  });
+  fab.querySelector('#quick-sport')?.addEventListener('click', () => {
+    fab.classList.remove('active');
+    // Ideally open a sport specific modal, for now generic modal or just a toast
+    showToast("Séance de sport enregistrée ! 💪");
+  });
+};
+
+// --- Onboarding Logic ---
+const renderOnboarding = () => {
+  if (localStorage.getItem('seenOnboarding')) return;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'onboarding-overlay';
+  const slides = [
+    { title: "Bienvenue sur Flow & Fit 🌸", desc: "Votre compagnon pour un cycle serein et une santé équilibrée.", icon: "fa-heart" },
+    { title: "Suivi de Cycle 📅", desc: "Anticipez vos règles et votre période fertile en un coup d'œil.", icon: "fa-calendar-alt" },
+    { title: "Santé & Bien-être 🧘‍♀️", desc: "Adaptez votre sommeil, sport et nutrition à votre rythme biologique.", icon: "fa-spa" }
+  ];
+
+  let currentSlide = 0;
+  const renderSlide = () => {
+    overlay.innerHTML = `
+      <i class="fas ${slides[currentSlide].icon} fa-4x" style="color:var(--terracotta); margin-bottom:30px; animation: popIn 0.5s;"></i>
+      <h2 style="font-size:24px; margin-bottom:15px; color:var(--text-main);">${slides[currentSlide].title}</h2>
+      <p style="color:var(--text-muted); margin-bottom:40px; line-height:1.6; max-width:300px;">${slides[currentSlide].desc}</p>
+      
+      <div class="onboarding-dots">
+        ${slides.map((_, i) => `<div class="dot ${i === currentSlide ? 'active' : ''}"></div>`).join('')}
+      </div>
+
+      <button class="btn-primary" id="next-slide-btn" style="margin-top:40px; width:auto; padding:12px 40px;">
+        ${currentSlide === slides.length - 1 ? "C'est parti ! ✨" : "Suivant"}
+      </button>
+    `;
+
+    overlay.querySelector('#next-slide-btn')?.addEventListener('click', () => {
+      if (currentSlide < slides.length - 1) {
+        currentSlide++;
+        renderSlide();
+      } else {
+        localStorage.setItem('seenOnboarding', 'true');
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.remove(), 500);
+      }
+    });
+  };
+
+  renderSlide();
+  document.body.appendChild(overlay);
+};
+
+// --- Updated Render Calendar (Now Home/Dashboard) ---
+const renderDashboard = () => {
+  if (!appContent) return;
+  viewTitle!.textContent = "Aperçu 🏡"; // Set title for Home
+
+  // Calculate Phase logic
+  const predictions = getCyclePredictions(userProfile.lastPeriodDate, userProfile.cycleLength, userProfile.periodLength);
+  const nextPeriodStart = predictions.nextPeriod;
+  const today = new Date();
+
+  // Determine Phase
+  let phaseName = "Phase Folliculaire 🌿"; // Default
+  let phaseClass = "theme-follicular";
+  let advice = "Énergie montante ! Idéal pour le sport."; // Default
+
+  // Logic could be more precise relying on dates vs today
+  if (userProfile.lastPeriodDate) {
+    const lp = new Date(userProfile.lastPeriodDate);
+    const diffTime = Math.abs(today.getTime() - lp.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= userProfile.periodLength) {
+      phaseName = "Phase Menstruelle 🌸";
+      phaseClass = "theme-menstrual";
+      advice = "Repos et douceur. Hydratez-vous bien.";
+    } else if (diffDays > userProfile.cycleLength - 14 - 2 && diffDays < userProfile.cycleLength - 14 + 2) {
+      phaseName = "Ovulation ✨";
+      phaseClass = "theme-ovulatory";
+      advice = "Rayonnante ! Osez les projets créatifs.";
+    } else if (diffDays >= userProfile.cycleLength - 14 + 2) {
+      phaseName = "Phase Lutéale 🍂";
+      phaseClass = "theme-luteal";
+      advice = "Écoutez votre corps, ralentissez le rythme.";
+    }
+  }
+
+  // Days until period
+  let daysUntil = 0;
+  if (nextPeriodStart) {
+    const diffStats = nextPeriodStart.getTime() - today.getTime();
+    daysUntil = Math.ceil(diffStats / (1000 * 60 * 60 * 24));
+  }
+
+  // Inject Dashboard
+  appContent.innerHTML = `
+    <!-- Hero Phase Card -->
+    <div class="phase-card ${phaseClass}">
+       <div style="position:relative; z-index:2;">
+          <div style="font-size:14px; opacity:0.9; margin-bottom:5px;">Aujourd'hui</div>
+          <h2 style="font-size:28px; margin-bottom:10px;">${phaseName}</h2>
+          <p style="font-size:16px; font-weight:500; opacity:0.95;"><i class="fas fa-lightbulb"></i> ${advice}</p>
+          
+          <div style="margin-top:20px; display:inline-flex; align-items:center; background:rgba(255,255,255,0.2); padding:5px 15px; border-radius:20px;">
+             <i class="fas fa-hourglass-half" style="margin-right:8px;"></i> Règles dans ${daysUntil} jours
+          </div>
+       </div>
+    </div>
+
+    <!-- Quick Stats Row -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:25px;">
+        <div class="card" style="margin:0; padding:15px; text-align:center;">
+           <i class="fas fa-tint" style="color:var(--sage); font-size:20px; margin-bottom:5px;"></i>
+           <div style="font-size:12px; color:var(--text-muted);">Hydratation</div>
+           <div style="font-weight:700; font-size:18px;">
+             ${dailyLogs.find(l => l.date === today.toISOString().split('T')[0])?.waterIntake || 0}/${userProfile.waterGoal || 8}
+           </div>
+        </div>
+        <div class="card" style="margin:0; padding:15px; text-align:center;">
+           <i class="fas fa-moon" style="color:var(--terracotta); font-size:20px; margin-bottom:5px;"></i>
+           <div style="font-size:12px; color:var(--text-muted);">Sommeil</div>
+           <div style="font-weight:700; font-size:18px;">
+             ${dailyLogs.find(l => l.date === today.toISOString().split('T')[0])?.sleepHours || 0}h
+           </div>
+        </div>
+    </div>
+    
+    <!-- Original Calendar (re-using renderCalendar logic but embedded? 
+         To avoid duplication, we can call renderCalendar() OR just embedding the Calendar VIEW here is redundant if we have specific views. 
+         Let's just put a specific mini-calendar or simply call renderCalendar logic here but simplified? 
+         Actually, the user wants "Aperçu". The detailed calendar can be in the "Calendar" Tab if we had 5 tabs. 
+         Since we have 4 tabs: Flow/Calendar, Fit, Tips, Profile. 
+         The USER wants "Home" as the first tab. 
+         So RenderDashboard IS the first tab view. It replaces the "Full Calendar" as the default view. 
+         But we still need access to the full calendar. 
+         Let's add a button "Voir le calendrier complet" which toggles a "full calendar mode" or simply render the calendar below.
+         Let's render the calendar below for now.
+    -->
+    <div id="calendar-wrapper"></div>
+  `;
+
+  // Execute standard calendar logic inside the wrapper
+  // We need to adapt renderCalendar to target a specific container or just rewrite inner logic.
+  // For simplicity, let's keep the dashboard 'light' and just show the full calendar below it:
+  // We can modify standard renderCalendar to APPEND instead of replace appContent, or accept a container.
+  // Let's modify renderCalendar signature quickly or just use a flag.
+  // OR: renderDashboard calls renderCalendar(true) where true means "Appended Mode".
+  // Actually, let's just make renderCalendar THE function for the first tab, and PREPEND the dashboard widget if it's the 'home' view.
+  // Wait, currentView IS 'calendar' (or 'home' now).
+  // Let's Rename 'calendar' view to 'home'.
+
+  // We'll call the OLD renderCalendar logic but inject the Dashboard Card at the top of the HTML string inside it.
+  const calWrapper = document.getElementById('calendar-wrapper');
+  if (calWrapper) renderCalendar(calWrapper);
+};
+
+const renderView = (view: string) => {
+  currentView = view;
+  localStorage.setItem('lastView', view);
+  navItems.forEach(item => item.classList.toggle('active', item.getAttribute('data-view') === view));
+  switch (view) {
+    case 'home': renderDashboard(); break; // Changed from 'calendar' to 'home' and calls renderDashboard
+    case 'calendar': renderCalendar(); break; // Added back for a dedicated calendar view if needed, or remove if dashboard fully replaces it.
+    case 'health': renderHealth(); break;
+    case 'tips': renderTips(); break;
+    case 'profile': renderProfile(); break;
+  }
+};
+
+// ... (We need to update renderCalendar to include the Dashboard Header if view is 'home')
+
+navItems.forEach(item => item.addEventListener('click', () => {
+  const view = item.getAttribute('data-view');
+  if (view) renderView(view);
+}));
+
 updateDateDisplay();
 
 if (userProfile.isSecurityEnabled && userProfile.pin) {
-  if (appContent) appContent.innerHTML = ''; // Hide content
+  if (appContent) appContent.innerHTML = '';
   renderLockScreen(getT('ui.confirmPin'), 'verify', () => {
-    renderView(currentView); // Render only after success
+    renderView(currentView);
+    renderFAB();
+    renderOnboarding();
   });
 } else {
   renderView(currentView);
+  renderFAB();
+  renderOnboarding();
 }
