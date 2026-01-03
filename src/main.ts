@@ -665,38 +665,6 @@ const renderProfile = () => {
   if (!appContent) return; viewTitle!.textContent = getT('titles.profile');
   appContent.innerHTML = `
     <div class="card">
-      <h3>${getT('ui.lang')} 🌍</h3>
-      <div style="display:flex; gap:10px;">
-        <button class="btn-primary" id="lang-fr" style="background:${userProfile.language === 'fr' || !userProfile.language ? 'var(--terracotta)' : 'var(--sage-light)'};">Français</button>
-        <button class="btn-primary" id="lang-en" style="background:${userProfile.language === 'en' ? 'var(--terracotta)' : 'var(--sage-light)'};">English</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>${getT('titles.profile')}</h3>
-      <div class="profile-card-mini active">
-        <div class="avatar-circle">${userProfile.name[0]}</div>
-        <div>
-          <h4 style="font-size:16px;">${userProfile.name}</h4>
-          <p style="font-size:12px; color:var(--text-muted);">ID: ${userProfile.id.slice(-4)}</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>Objectifs & Cycle ⚙️</h3>
-      <div class="bmi-grid" style="grid-template-columns: 1fr 1fr; gap: 15px;">
-         <div class="input-group"><label>Cycle</label><input type="number" id="p-cycle" value="${userProfile.cycleLength}"></div>
-         <div class="input-group"><label>Règles</label><input type="number" id="p-period" value="${userProfile.periodLength}"></div>
-         <div class="input-group"><label>${getT('ui.goalWeight')}</label><input type="number" id="p-weight" value="${userProfile.targetWeight || 60}"></div>
-         <div class="input-group"><label>Eau</label><input type="number" id="p-water" value="${userProfile.waterGoal || 8}"></div>
-         <div class="input-group"><label>Sommeil</label><input type="number" id="p-sleep" value="${userProfile.sleepGoal || 8}"></div>
-         <div class="input-group"><label>${getT('phases.menstrual')}</label><input type="date" id="p-last" value="${userProfile.lastPeriodDate || ''}"></div>
-      </div>
-      <button class="btn-primary" id="save-profile-btn" style="margin-top:15px;">${getT('ui.save')}</button>
-    </div>
-
-    <div class="card">
       <h3>${getT('ui.switchProfile')}</h3>
       <div class="profile-card-mini" id="add-profile-btn">
         <div class="avatar-circle plus"><i class="fas fa-plus"></i></div>
@@ -708,6 +676,14 @@ const renderProfile = () => {
           <div><h4 style="font-size:14px;">${p.name}</h4></div>
         </div>
       ` : '').join('')}
+    </div>
+
+    <div class="card">
+      <h3>${getT('ui.lang')} 🌍</h3>
+      <div style="display:flex; gap:10px;">
+        <button class="btn-primary" id="lang-fr" style="background:${userProfile.language === 'fr' || !userProfile.language ? 'var(--terracotta)' : 'var(--sage-light)'};">Français</button>
+        <button class="btn-primary" id="lang-en" style="background:${userProfile.language === 'en' ? 'var(--terracotta)' : 'var(--sage-light)'};">English</button>
+      </div>
     </div>
 
     <div class="card">
