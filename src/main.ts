@@ -259,7 +259,10 @@ const renderLockScreen = (customTitle: string = "Entrez votre PIN", mode: 'verif
           if (mode === 'verify') {
             if (enteredPin === userProfile.pin) {
               lockEl.classList.add('out');
-              setTimeout(() => lockEl.remove(), 400);
+              setTimeout(() => {
+                lockEl.remove();
+                if (callback) callback(enteredPin);
+              }, 400);
             } else { enteredPin = ""; updateDots(); alert("PIN Incorrect"); }
           } else if (callback) { callback(enteredPin); lockEl.remove(); }
         }, 200);
@@ -695,16 +698,16 @@ const renderProfile = () => {
 
     <div class="card">
       <h3>${getT('ui.switchProfile')}</h3>
+      <div class="profile-card-mini" id="add-profile-btn">
+        <div class="avatar-circle plus"><i class="fas fa-plus"></i></div>
+        <div><h4 style="font-size:14px; color:var(--terracotta);">${getT('ui.addProfile')}</h4></div>
+      </div>
       ${profiles.map(p => p.id !== activeProfileId ? `
         <div class="profile-card-mini" onclick="window.switchProfile('${p.id}')">
           <div class="avatar-circle">${p.name[0]}</div>
           <div><h4 style="font-size:14px;">${p.name}</h4></div>
         </div>
       ` : '').join('')}
-      <div class="profile-card-mini" id="add-profile-btn">
-        <div class="avatar-circle plus"><i class="fas fa-plus"></i></div>
-        <div><h4 style="font-size:14px; color:var(--terracotta);">${getT('ui.addProfile')}</h4></div>
-      </div>
     </div>
 
     <div class="card">
@@ -1002,5 +1005,13 @@ const getCyclePredictions = (lastPeriod: string | undefined, cycleLen: number, p
 }
 
 navItems.forEach(item => item.addEventListener('click', () => { const view = item.getAttribute('data-view'); if (view) renderView(view); }));
-updateDateDisplay(); renderView(currentView);
-if (userProfile.isSecurityEnabled && userProfile.pin) renderLockScreen("Entrez votre PIN");
+updateDateDisplay();
+
+if (userProfile.isSecurityEnabled && userProfile.pin) {
+  if (appContent) appContent.innerHTML = ''; // Hide content
+  renderLockScreen(getT('ui.confirmPin'), 'verify', () => {
+    renderView(currentView); // Render only after success
+  });
+} else {
+  renderView(currentView);
+}
